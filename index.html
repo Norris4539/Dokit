@@ -236,7 +236,7 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 
 /* ── Job detail ──────────────────────────────────────────────────────── */
 .detail-body{padding:var(--sp-4)}
-.detail-title-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:var(--sp-3)}
+.detail-title-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:var(--sp-3)}
 .detail-row{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--card-border);font-size:11px}
 .detail-row:first-child{border-top:none}
 .detail-row .lab{flex:0 0 78px;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec);padding-top:1px}
@@ -636,11 +636,9 @@ function renderJobDetail(container,job,report,loading){
   else buildActions(actions,job,hasReport);
   container.replaceChildren(
     h('div',{className:'detail-title-row'},
-      h('div',{style:{flex:1}},
-        h('div',{className:'brand-serif',style:{fontSize:'19px',lineHeight:'1.2'}},job.client_name||'Job #'+job.id),
-        h('div',{style:{fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--text-sec)',marginTop:'4px'}},'Job #'+job.id+(job.job_type?' · '+job.job_type:''))),
-      job.priority?h('span',{className:'ws-seal',style:{color:pi.c}},pi.l):null),
-    Pill(job.status),
+      job.priority?h('span',{className:'ws-seal',style:{color:pi.c}},pi.l):null,
+      h('div',{className:'brand-serif',style:{fontSize:'19px',lineHeight:'1.2'}},job.client_name||'Job #'+job.id)),
+    h('div',{style:{textAlign:'center'}},Pill(job.status)),
     h('div',{style:{marginTop:'12px'}},rows),
     actions);
 }
