@@ -236,7 +236,7 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 
 /* ── Job detail ──────────────────────────────────────────────────────── */
 .detail-body{padding:var(--sp-4)}
-.detail-title-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:var(--sp-3)}
+.detail-title-row{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin-bottom:var(--sp-3)}
 .detail-row{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--card-border);font-size:11px}
 .detail-row:first-child{border-top:none}
 .detail-row .lab{flex:0 0 78px;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec);padding-top:1px}
@@ -286,7 +286,7 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 .sig-modal-bar{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--card-border);background:var(--card-bg)}
 .sig-modal-bar button{flex:1}
 select.ws-input{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-sec) 50%),linear-gradient(135deg,var(--text-sec) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;cursor:pointer}
-select.status-select{text-align:center;text-align-last:center;padding-left:26px}
+select.status-select{text-align:center;text-align-last:center;padding:9px 11px 22px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(50% - 3px) calc(100% - 9px),calc(50% + 2px) calc(100% - 9px);background-size:5px 5px,5px 5px;background-repeat:no-repeat}
 select.status-select option{text-align:center}
 .ws-btn-install{background:var(--sumi);color:var(--washi);border:none;padding:12px 14px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:1px;font-family:'Noto Sans JP',sans-serif}
 .ws-btn-install:disabled{opacity:.55;cursor:default}
@@ -297,8 +297,8 @@ select.status-select option{text-align:center}
 .biz6-br.bl{bottom:8px;left:8px;border-right:none;border-top:none}
 .biz6-br.brr{bottom:8px;right:8px;border-left:none;border-top:none}
 .biz6-in{text-align:center}
-.biz6-nm{font-family:'Playfair Display',Georgia,serif;font-size:20px;color:var(--text-pri);line-height:1.1}
-.biz6-ro{font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ki);margin:4px 0 12px}
+.biz6-nm{font-family:'Playfair Display',Georgia,serif;font-size:20px;color:var(--text-pri);line-height:1.1;margin-bottom:12px}
+.biz6-ro{font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ki);margin:0 0 3px}
 .biz6-ln{font-size:11px;color:var(--text-pri);font-weight:300;padding:3px 0;line-height:1.4}
 .biz6-lb{font-size:7px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec);display:block;margin-bottom:1px}
 .biz6-ln a.val-link{color:var(--indigo);text-decoration:underline}
@@ -670,9 +670,8 @@ function renderJobDetail(container,job,report,loading){
     :null;
   container.replaceChildren(
     h('div',{className:'detail-title-row'},
-      job.priority?h('span',{className:'ws-seal',style:{color:pi.c}},pi.l):null,
-      h('div',{className:'brand-serif',style:{fontSize:'19px',lineHeight:'1.2'}},job.client_name||'Job #'+job.id)),
-    h('div',{style:{textAlign:'center'}},Pill(job.status)),
+      h('div',{className:'brand-serif',style:{fontSize:'19px',lineHeight:'1.2'}},job.client_name||'Job #'+job.id),
+      job.priority?h('span',{className:'ws-seal',style:{color:pi.c}},pi.l):null),
     card,
     descBlock,
     stockSec,
@@ -687,8 +686,8 @@ function jobCard(job){
   return h('div',{className:'biz6'},
     h('span',{className:'biz6-br tl'}),h('span',{className:'biz6-br tr'}),h('span',{className:'biz6-br bl'}),h('span',{className:'biz6-br brr'}),
     h('div',{className:'biz6-in'},
-      h('div',{className:'biz6-nm'},job.contact_name||job.client_name||('Job #'+job.id)),
       h('div',{className:'biz6-ro'},job.contact_name?'Site Contact':(job.client_name||'')),
+      h('div',{className:'biz6-nm'},job.contact_name||job.client_name||('Job #'+job.id)),
       ...lines.map(([lab,val,href])=>h('div',{className:'biz6-ln'},
         h('span',{className:'biz6-lb'},lab),
         href?h('a',{className:'val-link',href:href,target:href.indexOf('http')===0?'_blank':undefined,rel:href.indexOf('http')===0?'noopener':undefined},val):val))));
@@ -697,8 +696,9 @@ function buildActions(container,job,hasReport){
   const s=(job.status||'pending').replace(/-/g,'_');
   const cur=(s==='scheduled'||s==='outstanding')?'pending':s;
   const STATUS_OPTS=[['pending','Outstanding'],['in_progress','In Progress'],['on_hold','On Hold'],['completed','Completed'],['cancelled','Cancelled']];
-  container.append(h('span',{style:{fontSize:'9px',letterSpacing:'0.14em',textTransform:'uppercase',color:'var(--text-sec)'}},'Update Status'));
-  const sel=h('select',{className:'ws-input status-select',onChange:e=>updateStatus(job,e.target.value,container)},...STATUS_OPTS.map(([v,l])=>h('option',{value:v},l)));
+  const si=statusInfo(job.status);
+  container.append(h('span',{style:{display:'block',textAlign:'center',fontSize:'9px',letterSpacing:'0.14em',textTransform:'uppercase',color:'var(--text-sec)'}},'Update Status'));
+  const sel=h('select',{className:'ws-input status-select',style:{backgroundColor:si.bg,borderColor:si.border,color:si.c},onChange:e=>updateStatus(job,e.target.value,container)},...STATUS_OPTS.map(([v,l])=>h('option',{value:v},l)));
   sel.value=cur;
   container.append(sel);
   if(cur==='completed')
