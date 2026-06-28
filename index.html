@@ -664,7 +664,7 @@ function renderJobDetail(container,job,report,loading){
   else buildActions(actions,job,hasReport);
   const stockSec=(job.required_stock&&job.required_stock.length)
     ?h('div',{style:{marginTop:'16px',textAlign:'center'}},h('span',{className:'sl',style:{textAlign:'center'}},'Stock Required'),
-      ...job.required_stock.map(it=>h('div',{className:'detail-row',style:{justifyContent:'center',gap:'8px'}},
+      ...job.required_stock.map(it=>h('div',{className:'detail-row',style:{justifyContent:'center',gap:'8px',borderTop:'none'}},
         h('div',{className:'val',style:{flex:'0 0 auto'}},it.name),
         h('div',{style:{flex:'0 0 auto',fontSize:'11px',color:'var(--text-sec)'}},'×'+it.qty))))
     :null;
