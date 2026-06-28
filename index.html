@@ -273,6 +273,19 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 .offline-inline{background:rgba(139,114,40,0.08);border:1px solid rgba(139,114,40,0.25);
   border-radius:1px;padding:9px 12px;font-size:9px;color:var(--ki);
   letter-spacing:0.1em;text-transform:uppercase;text-align:center}
+.sig-actions{display:flex;flex-direction:column;gap:8px}
+.sig-preview{height:90px;background:var(--shiro);border:1px solid var(--card-border);border-radius:2px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.sig-preview img{max-width:100%;max-height:100%;object-fit:contain}
+.sig-modal{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;flex-direction:column}
+.sig-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--card-border);background:var(--card-bg)}
+.sig-modal-title{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec)}
+.sig-modal-stage{flex:1;position:relative;background:var(--shiro);touch-action:none;overflow:hidden}
+.sig-modal-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.sig-baseline{position:absolute;left:7%;right:7%;bottom:24%;border-bottom:1px solid var(--tsuchi);pointer-events:none}
+.sig-baseline-x{position:absolute;left:7%;bottom:24%;transform:translateY(50%);color:var(--text-dim);font-size:16px;pointer-events:none}
+.sig-modal-bar{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--card-border);background:var(--card-bg)}
+.sig-modal-bar button{flex:1}
+select.ws-input{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-sec) 50%),linear-gradient(135deg,var(--text-sec) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;cursor:pointer}
 
 /* ── Profile — verbatim ──────────────────────────────────────────────── */
 .prof-body{padding:var(--sp-4)}
@@ -334,6 +347,7 @@ const DEMO_JOBS = [
   {id:2, client_name:'BlueSky Ltd',        location:'88 Long St, Cape Town',   status:'outstanding', priority:'medium', scheduled_date:TODAY, scheduled_time:'13:30', due_date:TODAY, notes:'Annual maintenance check.',                        assigned_to:1},
   {id:3, client_name:'Pinnacle Holdings',  location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', assigned_to:1},
 ];
+const DEMO_STOCK = ['Maglock','Z-Bracket','Timer Board','Mounting Bracket','No-Touch Exit Button','Emergency Call Point/Break Glass (Resettable)','3 Amp Power Supply','12 Volt Battery (Lithium-Ion)','12 Volt Battery (Lead-Acid)'];
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function statusInfo(st) {
@@ -671,10 +685,7 @@ async function updateStatus(job,newStatus,actEl){
 function SVRScreen(jobId){
   const wrap=h('div',{style:{display:'flex',flexDirection:'column',minHeight:'100%'}});
   wrap.append(h('div',{className:'app-bar'},h('button',{className:'back',onClick:()=>location.hash='#job/'+jobId},'← Job'),h('div',{className:'title',style:{fontSize:'15px'}},'Site Visit Report')));
-  const stepBar=h('div',{className:'step-bar'});
-  for(let i=0;i<4;i++)stepBar.append(h('span',{className:'step-dot'+(i===0?' active':''),id:'sd'+i}));
-  stepBar.append(h('span',{className:'step-lbl',id:'sdlbl'},'Notes & Materials'));
-  const body=h('div',{className:'svr-body anim-fade'}); wrap.append(stepBar,body);
+  const body=h('div',{className:'svr-body anim-fade'}); wrap.append(body);
   const st={notes:'',materials:[{name:'',qty:'',unit:'',sid:null}],photos:[],reportId:null,submitting:false};
   idbGet('svr_drafts',Number(jobId)).then(d=>{if(d){st.notes=d.notes||'';st.materials=d.materials||st.materials;renderSVR(body,jobId,st);}}).catch(()=>{});
   renderSVR(body,jobId,st);
@@ -682,15 +693,13 @@ function SVRScreen(jobId){
 }
 function setStep(i){for(let x=0;x<4;x++){const e=document.getElementById('sd'+x);if(e)e.className='step-dot'+(x<i?' done':x===i?' active':'');}const l=document.getElementById('sdlbl');if(l)l.textContent=['Notes & Materials','Signature','Photos','Finalising…'][i]||'';}
 function renderSVR(container,jobId,st){
-  let sigCanvas;
   const matWrap=h('div',{}); let saveTimer=null;
   const scheduleSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{idbPut('svr_drafts',{job_id:Number(jobId),notes:st.notes,materials:st.materials,saved_at:new Date().toISOString()}).catch(()=>{});},2000);};
   function renderMats(){
     matWrap.replaceChildren(...st.materials.map((m,i)=>{
-      const nw=h('div',{style:{position:'relative',flex:1}});
-      const ni=h('input',{className:'ws-input',placeholder:'Item name',value:m.name||'',onInput:e=>{m.name=e.target.value;debAC(e.target.value,nw,m);scheduleSave();},onBlur:()=>setTimeout(()=>nw.querySelectorAll('.ac-list').forEach(el=>el.remove()),150)});
-      nw.append(ni);
-      return h('div',{className:'mat-row'},nw,
+      const sel=h('select',{className:'ws-input',onChange:e=>{m.name=e.target.value;scheduleSave();}},h('option',{value:''},'Select item…'),...DEMO_STOCK.map(name=>h('option',{value:name},name)));
+      sel.value=m.name||'';
+      return h('div',{className:'mat-row'},sel,
         h('input',{className:'ws-input',type:'number',placeholder:'Qty',min:'0',step:'any',value:m.qty||'',onInput:e=>{m.qty=e.target.value;scheduleSave();}}),
         h('span',{className:'mat-unit'},m.unit||''),
         h('button',{className:'mat-del',onClick:()=>{if(st.materials.length>1){st.materials.splice(i,1);renderMats();}}}, '×'));
@@ -711,7 +720,7 @@ function renderSVR(container,jobId,st){
       const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:st.notes,stock_usage:stock});
       if(!rpt)throw new Error('Failed to create report');
       st.reportId=rpt.id; setStep(1);
-      if(sigCanvas){const blob=await canvasBlob(sigCanvas);if(blob){const fd=new FormData();fd.append('signature',blob,'signature.png');const r=await apiFetch('POST','/reports/'+st.reportId+'/signature',fd);if(!r||!r.ok)throw new Error('Signature upload failed');}}
+      if(st.signatureBlob){const fd=new FormData();fd.append('signature',st.signatureBlob,'signature.png');const r=await apiFetch('POST','/reports/'+st.reportId+'/signature',fd);if(!r||!r.ok)throw new Error('Signature upload failed');}
       setStep(2);
       for(const photo of st.photos){const fd=new FormData();fd.append('photo',photo,photo.name);const r=await apiFetch('POST','/reports/'+st.reportId+'/attachments',fd);if(!r||!r.ok)throw new Error('Photo upload failed');}
       setStep(3);
@@ -721,9 +730,13 @@ function renderSVR(container,jobId,st){
       location.hash='#job/'+jobId;
     }catch(err){toast(err.message||'Submission failed','error','Error');st.submitting=false;submitBtn.disabled=false;submitBtn.textContent='Submit Report';}
   }},'Submit Report');
+  const sigPreview=h('div',{className:'sig-preview'});
+  const sigBtn=h('button',{className:'ws-btn-ghost ws-btn-full',type:'button'});
+  function renderSig(){sigPreview.replaceChildren();if(st.signatureURL){sigPreview.append(h('img',{src:st.signatureURL,alt:'Signature'}));sigBtn.textContent='✓ Signature captured — Re-capture';}else{sigPreview.append(h('span',{style:{color:'var(--text-dim)',fontSize:'10px',letterSpacing:'0.1em',textTransform:'uppercase'}},'No signature captured'));sigBtn.textContent='Capture Signature';}}
+  sigBtn.addEventListener('click',()=>openSignatureCapture(blob=>{st.signatureBlob=blob;if(st.signatureURL)URL.revokeObjectURL(st.signatureURL);st.signatureURL=URL.createObjectURL(blob);renderSig();}));
   const sigSection=STATE.offline
     ?h('div',{className:'offline-inline'},'Signature unavailable offline')
-    :(()=>{const box=h('div',{className:'sig-box'});sigCanvas=h('canvas',{className:'sig-canvas'});box.append(sigCanvas);const cl=h('div',{className:'sig-clear',onClick:()=>{const ctx=sigCanvas.getContext('2d');const dpr=window.devicePixelRatio||1;ctx.clearRect(0,0,sigCanvas.width/dpr,sigCanvas.height/dpr);}},'Clear');setTimeout(()=>initSigPad(sigCanvas),80);return h('div',{},box,cl);})();
+    :(renderSig(),h('div',{className:'sig-actions'},sigPreview,sigBtn));
   const photoSection=STATE.offline?h('div',{className:'offline-inline'},'Photo upload unavailable offline'):photoArea;
   renderMats(); renderPhotos();
   container.replaceChildren(
@@ -782,6 +795,37 @@ function initSigPad(canvas){
   canvas.addEventListener('touchend',()=>drawing=false);
 }
 function canvasBlob(c){return new Promise(r=>{try{c.toBlob(b=>r(b),'image/png');}catch(_){r(null);}});}
+function openSignatureCapture(onSave){
+  const overlay=h('div',{className:'sig-modal'});
+  const stage=h('div',{className:'sig-modal-stage'});
+  const canvas=h('canvas',{className:'sig-modal-canvas'});
+  stage.append(canvas,h('div',{className:'sig-baseline'}),h('div',{className:'sig-baseline-x'},'✗'));
+  const rotateBtn=h('button',{className:'ws-btn-ghost',type:'button',style:{flex:'0 0 auto',padding:'7px 12px'},onClick:()=>toggleRotate()},'⟳ Rotate');
+  const head=h('div',{className:'sig-modal-head'},h('span',{className:'sig-modal-title'},'Client Signature — sign below'),rotateBtn);
+  const bar=h('div',{className:'sig-modal-bar'},
+    h('button',{className:'ws-btn-ghost',type:'button',onClick:()=>{strokes=[];redraw();}},'Clear'),
+    h('button',{className:'ws-btn-ghost',type:'button',onClick:()=>close()},'Cancel'),
+    h('button',{className:'ws-btn-primary',type:'button',onClick:()=>save()},'Save'));
+  overlay.append(head,stage,bar);
+  document.body.append(overlay);
+  const ctx=canvas.getContext('2d');
+  let strokes=[],cur=null,drawing=false,W=1,H=1,dpr=window.devicePixelRatio||1;
+  function resize(){const r=stage.getBoundingClientRect();W=Math.max(1,r.width);H=Math.max(1,r.height);dpr=window.devicePixelRatio||1;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);redraw();}
+  function line(c,pts,sw,sh,lw){c.lineWidth=lw;c.lineCap='round';c.lineJoin='round';c.strokeStyle='#1c1a18';c.fillStyle='#1c1a18';for(const sp of pts){if(sp.length===1){c.beginPath();c.arc(sp[0].x*sw,sp[0].y*sh,lw/2,0,7);c.fill();continue;}if(sp.length<2)continue;c.beginPath();c.moveTo(sp[0].x*sw,sp[0].y*sh);for(let i=1;i<sp.length;i++)c.lineTo(sp[i].x*sw,sp[i].y*sh);c.stroke();}}
+  function redraw(){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);line(ctx,strokes,W,H,2.2);}
+  function pt(e){const r=stage.getBoundingClientRect();const cx=e.touches?e.touches[0].clientX:e.clientX;const cy=e.touches?e.touches[0].clientY:e.clientY;return{x:Math.min(1,Math.max(0,(cx-r.left)/r.width)),y:Math.min(1,Math.max(0,(cy-r.top)/r.height))};}
+  function down(e){e.preventDefault();drawing=true;cur=[pt(e)];strokes.push(cur);redraw();}
+  function move(e){if(!drawing)return;e.preventDefault();cur.push(pt(e));redraw();}
+  function up(){drawing=false;cur=null;}
+  canvas.addEventListener('mousedown',down);canvas.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
+  canvas.addEventListener('touchstart',down,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',up);
+  window.addEventListener('resize',resize);
+  function toggleRotate(){try{const t=(screen.orientation&&screen.orientation.type)||'';const want=t.indexOf('landscape')===0?'portrait':'landscape';if(screen.orientation&&screen.orientation.lock){screen.orientation.lock(want).catch(()=>toast('Turn your device to sign in '+want,'','Signature'));}else{toast('Turn your device to rotate the signing area','','Signature');}}catch(_){toast('Turn your device to rotate the signing area','','Signature');}}
+  function hasInk(){return strokes.some(sp=>sp.length>0);}
+  function save(){if(!hasInk()){toast('Please sign before saving','error','Signature');return;}const OW=1000,OH=Math.max(220,Math.round(OW*(H/W)));const out=document.createElement('canvas');out.width=OW;out.height=OH;const o=out.getContext('2d');o.fillStyle='#ffffff';o.fillRect(0,0,OW,OH);line(o,strokes,OW,OH,Math.max(2.5,(OW/W)*2.2));out.toBlob(b=>{if(b)onSave(b);close();},'image/png');}
+  function close(){window.removeEventListener('resize',resize);window.removeEventListener('mouseup',up);try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('portrait').catch(()=>{});}catch(_){}overlay.remove();}
+  setTimeout(resize,30);
+}
 
 /* ── Autocomplete ─────────────────────────────────────────────────── */
 let _act=null;
