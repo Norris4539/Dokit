@@ -343,9 +343,9 @@ const DEMO_EMAIL    = 'admin@dokit.co.za';
 const DEMO_PASSWORD = 'Admin1234!';
 const DEMO_USER     = {id:1, name:'Admin User', email:'admin@dokit.co.za', role:'admin'};
 const DEMO_JOBS = [
-  {id:1, client_name:'Acme Corp',         location:'12 Main St, Cape Town',   status:'in-progress', priority:'high',   scheduled_date:TODAY, scheduled_time:'09:00', due_date:TODAY, notes:'Install replacement unit. Access via side gate.', assigned_to:1},
-  {id:2, client_name:'BlueSky Ltd',        location:'88 Long St, Cape Town',   status:'outstanding', priority:'medium', scheduled_date:TODAY, scheduled_time:'13:30', due_date:TODAY, notes:'Annual maintenance check.',                        assigned_to:1},
-  {id:3, client_name:'Pinnacle Holdings',  location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', assigned_to:1},
+  {id:1, client_name:'Acme Corp',         title:'Install replacement unit', location:'12 Main St, Cape Town',   status:'in-progress', priority:'high',   scheduled_date:TODAY, scheduled_time:'09:00', due_date:TODAY, notes:'Install replacement unit. Access via side gate.', assigned_to:1},
+  {id:2, client_name:'BlueSky Ltd',        title:'Annual maintenance check', location:'88 Long St, Cape Town',   status:'outstanding', priority:'medium', scheduled_date:TODAY, scheduled_time:'13:30', due_date:TODAY, notes:'Annual maintenance check.',                        assigned_to:1},
+  {id:3, client_name:'Pinnacle Holdings',  title:'Site survey', location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', assigned_to:1},
 ];
 const DEMO_STOCK = ['Maglock','Z-Bracket','Timer Board','Mounting Bracket','No-Touch Exit Button','Emergency Call Point/Break Glass (Resettable)','3 Amp Power Supply','12 Volt Battery (Lithium-Ion)','12 Volt Battery (Lead-Acid)'];
 
@@ -641,10 +641,9 @@ function renderJobDetail(container,job,report,loading){
   if(!job){container.replaceChildren(h('p',{style:{color:'var(--text-sec)'}},'Job not found.'));return;}
   const si=statusInfo(job.status); const pi=priorityInfo(job.priority); const hasReport=!!report;
   const rows=h('div',{});
+  if(job.title||job.job_type) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Job Title'),h('div',{className:'val'},job.title||job.job_type)));
   if(job.location)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Location'),h('a',{className:'val val-link',href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.location),target:'_blank',rel:'noopener'},job.location)));
-  if(job.due_date)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Due'),h('div',{className:'val'},fmtDate(job.due_date))));
   if(job.scheduled_time) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Time'),h('div',{className:'val'},fmtTime(job.scheduled_time))));
-  if(job.priority)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Priority'),h('div',{className:'val',style:{color:pi.c}},capitalize(job.priority))));
   if(job.notes)          rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Notes'),h('div',{className:'val muted'},job.notes)));
   const actions=h('div',{className:'detail-actions'});
   if(loading)actions.append(h('div',{className:'ws-skeleton',style:{height:'44px'}}));
@@ -659,15 +658,14 @@ function renderJobDetail(container,job,report,loading){
 }
 function buildActions(container,job,hasReport){
   const s=(job.status||'pending').replace(/-/g,'_');
-  if(s==='pending'||s==='scheduled'||s==='outstanding')
-    container.append(h('button',{className:'ws-btn-primary ws-btn-full',onClick:()=>updateStatus(job,'in_progress',container)},'Mark In Progress'));
-  if(s==='in_progress')
-    container.append(h('button',{className:'ws-btn-primary ws-btn-full',onClick:()=>updateStatus(job,'completed',container)},'Mark Completed'));
-  if(s!=='cancelled'){
+  const cur=(s==='scheduled'||s==='outstanding')?'pending':s;
+  const STATUS_OPTS=[['pending','Outstanding'],['in_progress','In Progress'],['on_hold','On Hold'],['completed','Completed'],['cancelled','Cancelled']];
+  container.append(h('span',{style:{fontSize:'9px',letterSpacing:'0.14em',textTransform:'uppercase',color:'var(--text-sec)'}},'Update Status'));
+  const sel=h('select',{className:'ws-input',onChange:e=>updateStatus(job,e.target.value,container)},...STATUS_OPTS.map(([v,l])=>h('option',{value:v},l)));
+  sel.value=cur;
+  container.append(sel);
+  if(cur==='completed')
     container.append(h('button',{className:'ws-btn-ghost ws-btn-full',disabled:hasReport||undefined,onClick:()=>{if(!hasReport)location.hash=`#job/${job.id}/svr`;}},hasReport?'✓ Report Submitted':'Submit Site Visit Report'));
-    if(s!=='completed')
-      container.append(h('button',{className:'ws-btn-danger ws-btn-full',onClick:()=>updateStatus(job,'cancelled',container)},'Cancel Job'));
-  }
 }
 async function updateStatus(job,newStatus,actEl){
   const old=job.status; job.status=newStatus;
