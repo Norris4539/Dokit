@@ -241,6 +241,7 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 .detail-row:first-child{border-top:none}
 .detail-row .lab{flex:0 0 78px;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec);padding-top:1px}
 .detail-row .val{flex:1;color:var(--text-pri);font-weight:300}
+.detail-row .val-link{color:var(--indigo);text-decoration:underline;cursor:pointer}
 .detail-actions{display:flex;flex-direction:column;gap:9px;margin-top:var(--sp-4)}
 
 /* ── SVR ──────────────────────────────────────────────────────────────── */
@@ -331,7 +332,7 @@ const DEMO_USER     = {id:1, name:'Admin User', email:'admin@dokit.co.za', role:
 const DEMO_JOBS = [
   {id:1, client_name:'Acme Corp',         location:'12 Main St, Cape Town',   status:'in-progress', priority:'high',   scheduled_date:TODAY, scheduled_time:'09:00', due_date:TODAY, notes:'Install replacement unit. Access via side gate.', assigned_to:1},
   {id:2, client_name:'BlueSky Ltd',        location:'88 Long St, Cape Town',   status:'outstanding', priority:'medium', scheduled_date:TODAY, scheduled_time:'13:30', due_date:TODAY, notes:'Annual maintenance check.',                        assigned_to:1},
-  {id:3, client_name:'Pinnacle Holdings',  location:'3 Loop St, Cape Town',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', assigned_to:1},
+  {id:3, client_name:'Pinnacle Holdings',  location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', assigned_to:1},
 ];
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -626,7 +627,7 @@ function renderJobDetail(container,job,report,loading){
   if(!job){container.replaceChildren(h('p',{style:{color:'var(--text-sec)'}},'Job not found.'));return;}
   const si=statusInfo(job.status); const pi=priorityInfo(job.priority); const hasReport=!!report;
   const rows=h('div',{});
-  if(job.location)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Location'),h('div',{className:'val'},job.location)));
+  if(job.location)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Location'),h('a',{className:'val val-link',href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.location),target:'_blank',rel:'noopener'},job.location)));
   if(job.due_date)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Due'),h('div',{className:'val'},fmtDate(job.due_date))));
   if(job.scheduled_time) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Time'),h('div',{className:'val'},fmtTime(job.scheduled_time))));
   if(job.priority)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Priority'),h('div',{className:'val',style:{color:pi.c}},capitalize(job.priority))));
