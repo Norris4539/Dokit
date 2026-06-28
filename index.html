@@ -157,11 +157,14 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 .cal-seg button:last-child{border-right:none}
 .cal-seg button.on{color:#d4a820;background:var(--sumi);box-shadow:none}
 .cal-bar{display:flex;align-items:center;gap:8px;margin:11px 14px 10px}
+.cal-side{flex:1;display:flex;align-items:center;gap:8px}
+.cal-left{justify-content:flex-start}
+.cal-right{justify-content:flex-end}
 .cal-step{width:26px;height:26px;border:1px solid var(--card-border);border-radius:2px;
   background:transparent;color:var(--text-sec);cursor:pointer;font-size:12px;line-height:1;
   display:flex;align-items:center;justify-content:center;transition:var(--trans)}
 .cal-step:hover{border-color:var(--nori);color:var(--text-pri)}
-.cal-per{font-family:'Noto Serif JP',serif;font-size:14px;flex:1;text-align:center;letter-spacing:0.02em}
+.cal-per{font-family:'Noto Serif JP',serif;font-size:14px;flex:0 0 auto;text-align:center;letter-spacing:0.02em}
 .cal-today{font-size:8px;letter-spacing:0.12em;text-transform:uppercase;padding:6px 9px;
   border:1px solid var(--card-border);border-radius:2px;color:var(--text-sec);
   background:transparent;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:var(--trans)}
@@ -471,7 +474,12 @@ function CalendarScreen(){
   ['day','week','month'].forEach(v=>seg.append(h('button',{className:STATE.calView===v?'on':'',onClick:()=>{STATE.calView=v;localStorage.setItem('dk_cal_view',v);render();}},capitalize(v))));
   wrap.append(seg);
   const bar=h('div',{className:'cal-bar'});
-  bar.append(h('button',{className:'cal-step',onClick:()=>{stepCal(-1);render();}},'‹'),h('span',{className:'cal-per'},calLabel()),h('button',{className:'cal-step',onClick:()=>{stepCal(1);render();}},'›'),h('button',{className:'cal-today',onClick:()=>{STATE.calDate=new Date();render();}},'Today'));
+  bar.append(
+    h('div',{className:'cal-side cal-left'},h('button',{className:'cal-step',onClick:()=>{stepCal(-1);render();}},'‹')),
+    h('span',{className:'cal-per'},calLabel()),
+    h('div',{className:'cal-side cal-right'},
+      h('button',{className:'cal-step',onClick:()=>{stepCal(1);render();}},'›'),
+      h('button',{className:'cal-today',onClick:()=>{STATE.calDate=new Date();render();}},'Today')));
   wrap.append(bar);
   if(STATE.calView==='day')       wrap.append(DayView());
   else if(STATE.calView==='week') wrap.append(WeekView());
@@ -510,11 +518,6 @@ function DayView(){
   const d=STATE.calDate; const ds=d.toISOString().slice(0,10); const isToday=ds===TODAY;
   const timed=jobsForDate(ds).filter(j=>!!j.scheduled_time);
   const wrap=h('div',{style:{display:'flex',flexDirection:'column',flex:'1',minHeight:0}});
-  const head=h('div',{className:'tg-head'});
-  head.append(h('div',{className:'tg-corner'}));
-  const dh=h('div',{className:'tg-dayhead'+(isToday?' today':'')});
-  dh.append(h('span',{className:'dow'},d.toLocaleDateString('en-ZA',{weekday:'short'}).toUpperCase()),h('span',{className:'wd'},d.getDate()));
-  head.append(dh); wrap.append(head);
   const scroll=h('div',{className:'tg-scroll anim-fade'});
   const body=h('div',{className:'tg-body',style:{height:24*HOUR_PX+'px'}});
   const gutter=h('div',{className:'tg-gutter'});
