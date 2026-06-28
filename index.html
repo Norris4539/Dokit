@@ -288,6 +288,18 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 select.ws-input{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-sec) 50%),linear-gradient(135deg,var(--text-sec) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;cursor:pointer}
 select.status-select{text-align:center;text-align-last:center;padding-left:26px}
 select.status-select option{text-align:center}
+.biz6{position:relative;background:var(--card-bg);padding:22px;border:1px solid var(--card-border);box-shadow:0 6px 18px var(--card-shadow);margin-top:12px}
+.biz6-br{position:absolute;width:18px;height:18px;border:2px solid var(--ki)}
+.biz6-br.tl{top:8px;left:8px;border-right:none;border-bottom:none}
+.biz6-br.tr{top:8px;right:8px;border-left:none;border-bottom:none}
+.biz6-br.bl{bottom:8px;left:8px;border-right:none;border-top:none}
+.biz6-br.brr{bottom:8px;right:8px;border-left:none;border-top:none}
+.biz6-in{text-align:center}
+.biz6-nm{font-family:'Playfair Display',Georgia,serif;font-size:20px;color:var(--text-pri);line-height:1.1}
+.biz6-ro{font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ki);margin:4px 0 12px}
+.biz6-ln{font-size:11px;color:var(--text-pri);font-weight:300;padding:3px 0;line-height:1.4}
+.biz6-lb{font-size:7px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec);display:block;margin-bottom:1px}
+.biz6-ln a.val-link{color:var(--indigo);text-decoration:underline}
 
 /* ── Profile — verbatim ──────────────────────────────────────────────── */
 .prof-body{padding:var(--sp-4)}
@@ -642,13 +654,8 @@ async function loadJobDetail(id,container){
 function renderJobDetail(container,job,report,loading){
   if(!job){container.replaceChildren(h('p',{style:{color:'var(--text-sec)'}},'Job not found.'));return;}
   const si=statusInfo(job.status); const pi=priorityInfo(job.priority); const hasReport=!!report;
-  const rows=h('div',{});
-  if(job.title||job.job_type) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Job Title'),h('div',{className:'val'},job.title||job.job_type)));
-  if(job.location)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Location'),h('a',{className:'val val-link',href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.location),target:'_blank',rel:'noopener'},job.location)));
-  if(job.contact_name)   rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Contact'),h('div',{className:'val'},job.contact_name)));
-  if(job.contact_phone)  rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Contact No.'),h('a',{className:'val val-link',href:'tel:'+String(job.contact_phone).replace(/\s/g,''),},job.contact_phone)));
-  if(job.scheduled_time) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Time'),h('div',{className:'val'},fmtTime(job.scheduled_time))));
-  if(job.notes)          rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Notes'),h('div',{className:'val muted'},job.notes)));
+  const card=jobCard(job);
+  const notes=job.notes?h('div',{style:{marginTop:'12px'}},h('div',{className:'detail-row'},h('div',{className:'lab'},'Notes'),h('div',{className:'val muted'},job.notes))):null;
   const actions=h('div',{className:'detail-actions'});
   if(loading)actions.append(h('div',{className:'ws-skeleton',style:{height:'44px'}}));
   else buildActions(actions,job,hasReport);
@@ -663,9 +670,25 @@ function renderJobDetail(container,job,report,loading){
       job.priority?h('span',{className:'ws-seal',style:{color:pi.c}},pi.l):null,
       h('div',{className:'brand-serif',style:{fontSize:'19px',lineHeight:'1.2'}},job.client_name||'Job #'+job.id)),
     h('div',{style:{textAlign:'center'}},Pill(job.status)),
-    h('div',{style:{marginTop:'12px'}},rows),
+    card,
+    notes,
     stockSec,
     actions);
+}
+function jobCard(job){
+  const lines=[];
+  if(job.title||job.job_type) lines.push(['Job Title',job.title||job.job_type,null]);
+  if(job.location)            lines.push(['Location',job.location,'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.location)]);
+  if(job.contact_phone)       lines.push(['Contact No.',job.contact_phone,'tel:'+String(job.contact_phone).replace(/\s/g,'')]);
+  if(job.scheduled_time)      lines.push(['Time',fmtTime(job.scheduled_time),null]);
+  return h('div',{className:'biz6'},
+    h('span',{className:'biz6-br tl'}),h('span',{className:'biz6-br tr'}),h('span',{className:'biz6-br bl'}),h('span',{className:'biz6-br brr'}),
+    h('div',{className:'biz6-in'},
+      h('div',{className:'biz6-nm'},job.contact_name||job.client_name||('Job #'+job.id)),
+      h('div',{className:'biz6-ro'},job.contact_name?'Site Contact':(job.client_name||'')),
+      ...lines.map(([lab,val,href])=>h('div',{className:'biz6-ln'},
+        h('span',{className:'biz6-lb'},lab),
+        href?h('a',{className:'val-link',href:href,target:href.indexOf('http')===0?'_blank':undefined,rel:href.indexOf('http')===0?'noopener':undefined},val):val))));
 }
 function buildActions(container,job,hasReport){
   const s=(job.status||'pending').replace(/-/g,'_');
