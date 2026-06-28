@@ -286,6 +286,8 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 .sig-modal-bar{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--card-border);background:var(--card-bg)}
 .sig-modal-bar button{flex:1}
 select.ws-input{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-sec) 50%),linear-gradient(135deg,var(--text-sec) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;cursor:pointer}
+select.status-select{text-align:center;text-align-last:center;padding-left:26px}
+select.status-select option{text-align:center}
 
 /* ── Profile — verbatim ──────────────────────────────────────────────── */
 .prof-body{padding:var(--sp-4)}
@@ -343,9 +345,9 @@ const DEMO_EMAIL    = 'admin@dokit.co.za';
 const DEMO_PASSWORD = 'Admin1234!';
 const DEMO_USER     = {id:1, name:'Admin User', email:'admin@dokit.co.za', role:'admin'};
 const DEMO_JOBS = [
-  {id:1, client_name:'Acme Corp',         title:'Install replacement unit', location:'12 Main St, Cape Town',   status:'in-progress', priority:'high',   scheduled_date:TODAY, scheduled_time:'09:00', due_date:TODAY, notes:'Install replacement unit. Access via side gate.', assigned_to:1},
-  {id:2, client_name:'BlueSky Ltd',        title:'Annual maintenance check', location:'88 Long St, Cape Town',   status:'outstanding', priority:'medium', scheduled_date:TODAY, scheduled_time:'13:30', due_date:TODAY, notes:'Annual maintenance check.',                        assigned_to:1},
-  {id:3, client_name:'Pinnacle Holdings',  title:'Site survey', location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', assigned_to:1},
+  {id:1, client_name:'Acme Corp',         title:'Install replacement unit', location:'12 Main St, Cape Town',   status:'in-progress', priority:'high',   scheduled_date:TODAY, scheduled_time:'09:00', due_date:TODAY, notes:'Install replacement unit. Access via side gate.', contact_name:'James Okafor', contact_phone:'+27 82 123 4567', required_stock:[{name:'Maglock',qty:1},{name:'Z-Bracket',qty:1},{name:'12 Volt Battery (Lithium-Ion)',qty:1}], assigned_to:1},
+  {id:2, client_name:'BlueSky Ltd',        title:'Annual maintenance check', location:'88 Long St, Cape Town',   status:'outstanding', priority:'medium', scheduled_date:TODAY, scheduled_time:'13:30', due_date:TODAY, notes:'Annual maintenance check.',                        contact_name:'Lerato Mokoena', contact_phone:'+27 83 234 5678', required_stock:[{name:'Timer Board',qty:1},{name:'3 Amp Power Supply',qty:1},{name:'No-Touch Exit Button',qty:2}], assigned_to:1},
+  {id:3, client_name:'Pinnacle Holdings',  title:'Site survey', location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', contact_name:'Priya Naidoo', contact_phone:'+27 84 345 6789', required_stock:[{name:'Mounting Bracket',qty:2},{name:'Emergency Call Point/Break Glass (Resettable)',qty:1}], assigned_to:1},
 ];
 const DEMO_STOCK = ['Maglock','Z-Bracket','Timer Board','Mounting Bracket','No-Touch Exit Button','Emergency Call Point/Break Glass (Resettable)','3 Amp Power Supply','12 Volt Battery (Lithium-Ion)','12 Volt Battery (Lead-Acid)'];
 
@@ -643,17 +645,26 @@ function renderJobDetail(container,job,report,loading){
   const rows=h('div',{});
   if(job.title||job.job_type) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Job Title'),h('div',{className:'val'},job.title||job.job_type)));
   if(job.location)       rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Location'),h('a',{className:'val val-link',href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.location),target:'_blank',rel:'noopener'},job.location)));
+  if(job.contact_name)   rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Contact'),h('div',{className:'val'},job.contact_name)));
+  if(job.contact_phone)  rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Contact No.'),h('a',{className:'val val-link',href:'tel:'+String(job.contact_phone).replace(/\s/g,''),},job.contact_phone)));
   if(job.scheduled_time) rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Time'),h('div',{className:'val'},fmtTime(job.scheduled_time))));
   if(job.notes)          rows.append(h('div',{className:'detail-row'},h('div',{className:'lab'},'Notes'),h('div',{className:'val muted'},job.notes)));
   const actions=h('div',{className:'detail-actions'});
   if(loading)actions.append(h('div',{className:'ws-skeleton',style:{height:'44px'}}));
   else buildActions(actions,job,hasReport);
+  const stockSec=(job.required_stock&&job.required_stock.length)
+    ?h('div',{style:{marginTop:'16px'}},h('span',{className:'sl'},'Stock Required'),
+      ...job.required_stock.map(it=>h('div',{className:'detail-row'},
+        h('div',{className:'val',style:{flex:'1'}},it.name),
+        h('div',{style:{flex:'0 0 auto',fontSize:'11px',color:'var(--text-sec)'}},'×'+it.qty))))
+    :null;
   container.replaceChildren(
     h('div',{className:'detail-title-row'},
       job.priority?h('span',{className:'ws-seal',style:{color:pi.c}},pi.l):null,
       h('div',{className:'brand-serif',style:{fontSize:'19px',lineHeight:'1.2'}},job.client_name||'Job #'+job.id)),
     h('div',{style:{textAlign:'center'}},Pill(job.status)),
     h('div',{style:{marginTop:'12px'}},rows),
+    stockSec,
     actions);
 }
 function buildActions(container,job,hasReport){
@@ -661,7 +672,7 @@ function buildActions(container,job,hasReport){
   const cur=(s==='scheduled'||s==='outstanding')?'pending':s;
   const STATUS_OPTS=[['pending','Outstanding'],['in_progress','In Progress'],['on_hold','On Hold'],['completed','Completed'],['cancelled','Cancelled']];
   container.append(h('span',{style:{fontSize:'9px',letterSpacing:'0.14em',textTransform:'uppercase',color:'var(--text-sec)'}},'Update Status'));
-  const sel=h('select',{className:'ws-input',onChange:e=>updateStatus(job,e.target.value,container)},...STATUS_OPTS.map(([v,l])=>h('option',{value:v},l)));
+  const sel=h('select',{className:'ws-input status-select',onChange:e=>updateStatus(job,e.target.value,container)},...STATUS_OPTS.map(([v,l])=>h('option',{value:v},l)));
   sel.value=cur;
   container.append(sel);
   if(cur==='completed')
