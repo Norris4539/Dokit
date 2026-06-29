@@ -82,7 +82,7 @@ body{font-family:'Noto Sans JP',sans-serif;color:var(--text-pri);font-weight:300
 .ws-btn-full{width:100%;text-align:center}
 .fl{display:block;font-size:9px;text-transform:uppercase;color:var(--text-sec);letter-spacing:0.16em;margin-bottom:6px}
 .sl{font-size:9px;text-transform:uppercase;color:var(--text-sec);letter-spacing:0.16em;
-  padding-bottom:6px;border-bottom:1px solid var(--tsuchi);margin-bottom:var(--sp-3);display:block}
+  padding-bottom:6px;border-bottom:1px solid var(--tsuchi);margin-bottom:var(--sp-3);display:block;text-align:center}
 .ws-input{width:100%;background:var(--input-bg);border:1px solid var(--card-border);border-radius:2px;
   padding:9px 11px;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:300;
   color:var(--text-pri);outline:none;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);transition:var(--trans)}
@@ -265,7 +265,7 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 .sig-clear{font-size:9px;color:var(--aka);text-align:right;cursor:pointer;padding:3px 0;
   letter-spacing:0.08em;text-transform:uppercase;opacity:.7}
 .sig-clear:hover{opacity:1}
-.photo-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photo-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;justify-content:center}
 .photo-thumb{width:56px;height:56px;object-fit:cover;border-radius:2px;border:1px solid var(--card-border)}
 .photo-add{width:56px;height:56px;border-radius:2px;border:1px dashed var(--tsuchi);
   background:transparent;color:var(--text-dim);font-size:20px;
@@ -732,7 +732,7 @@ function renderSVR(container,jobId,st){
   const scheduleSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{idbPut('svr_drafts',{job_id:Number(jobId),notes:st.notes,materials:st.materials,saved_at:new Date().toISOString()}).catch(()=>{});},2000);};
   function renderMats(){
     matWrap.replaceChildren(...st.materials.map((m,i)=>{
-      const sel=h('select',{className:'ws-input',onChange:e=>{m.name=e.target.value;scheduleSave();}},h('option',{value:''},'Select item…'),...DEMO_STOCK.map(name=>h('option',{value:name},name)));
+      const sel=h('select',{className:'ws-input status-select',onChange:e=>{m.name=e.target.value;scheduleSave();}},h('option',{value:''},'Select item…'),...DEMO_STOCK.map(name=>h('option',{value:name},name)));
       sel.value=m.name||'';
       return h('div',{className:'mat-row'},sel,
         h('input',{className:'ws-input',type:'number',placeholder:'Qty',min:'0',step:'any',value:m.qty||'',onInput:e=>{m.qty=e.target.value;scheduleSave();}}),
@@ -775,7 +775,7 @@ function renderSVR(container,jobId,st){
   const photoSection=STATE.offline?h('div',{className:'offline-inline'},'Photo upload unavailable offline'):photoArea;
   renderMats(); renderPhotos();
   container.replaceChildren(
-    h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Notes'),h('textarea',{className:'ws-input',rows:'4',placeholder:'Describe the work done…',onInput:e=>{st.notes=e.target.value;scheduleSave();}},st.notes||'')),
+    h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Notes'),h('textarea',{className:'ws-input',rows:'4',placeholder:'Describe the work done…',style:{textAlign:'center'},onInput:e=>{st.notes=e.target.value;scheduleSave();}},st.notes||'')),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Materials Used'),matWrap),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Customer Signature'),sigSection),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Photos (max 5)'),photoSection),
