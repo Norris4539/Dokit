@@ -288,6 +288,9 @@ textarea.ws-input{resize:vertical;line-height:1.55;min-height:80px}
 select.ws-input{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-sec) 50%),linear-gradient(135deg,var(--text-sec) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:26px;cursor:pointer}
 select.status-select{text-align:center;text-align-last:center;padding:9px 11px 22px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(50% - 3px) calc(100% - 9px),calc(50% + 2px) calc(100% - 9px);background-size:5px 5px,5px 5px;background-repeat:no-repeat}
 select.status-select option{text-align:center}
+.mat-select{padding-top:22px}
+.ck-hh-btn{background:none;border:none;cursor:pointer;font-family:'Noto Serif JP',serif;font-size:32px;font-weight:300;letter-spacing:0.04em;color:var(--text-pri);padding:0 6px 4px;line-height:1.1;transition:color 0.2s}
+.ck-num{cursor:pointer}
 .ws-btn-install{background:var(--sumi);color:var(--washi);border:none;padding:12px 14px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:1px;font-family:'Noto Sans JP',sans-serif}
 .ws-btn-install:disabled{opacity:.55;cursor:default}
 .biz6{position:relative;background:var(--card-bg);padding:22px;border:1px solid var(--card-border);box-shadow:0 6px 18px var(--card-shadow);margin-top:12px}
@@ -722,17 +725,19 @@ function SVRScreen(jobId){
   wrap.append(h('div',{className:'app-bar'},h('button',{className:'back',onClick:()=>location.hash='#job/'+jobId},'← Job'),h('div',{className:'title',style:{fontSize:'15px'}},'Site Visit Report')));
   const body=h('div',{className:'svr-body anim-fade'}); wrap.append(body);
   const st={notes:'',materials:[{name:'',qty:'',unit:'',sid:null}],photos:[],reportId:null,submitting:false};
-  idbGet('svr_drafts',Number(jobId)).then(d=>{if(d){st.notes=d.notes||'';st.materials=d.materials||st.materials;renderSVR(body,jobId,st);}}).catch(()=>{});
+  idbGet('svr_drafts',Number(jobId)).then(d=>{if(d){st.notes=d.notes||'';st.materials=d.materials||st.materials;if(d.visitTime)st.visitTime=d.visitTime;renderSVR(body,jobId,st);}}).catch(()=>{});
   renderSVR(body,jobId,st);
   return wrap;
 }
 function setStep(i){for(let x=0;x<4;x++){const e=document.getElementById('sd'+x);if(e)e.className='step-dot'+(x<i?' done':x===i?' active':'');}const l=document.getElementById('sdlbl');if(l)l.textContent=['Notes & Materials','Signature','Photos','Finalising…'][i]||'';}
 function renderSVR(container,jobId,st){
+  const _job=STATE.jobs.find(j=>String(j.id)===String(jobId));
+  if(st.visitTime==null)st.visitTime=(_job&&_job.scheduled_time)||'09:00';
   const matWrap=h('div',{}); let saveTimer=null;
-  const scheduleSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{idbPut('svr_drafts',{job_id:Number(jobId),notes:st.notes,materials:st.materials,saved_at:new Date().toISOString()}).catch(()=>{});},2000);};
+  const scheduleSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{idbPut('svr_drafts',{job_id:Number(jobId),notes:st.notes,materials:st.materials,visitTime:st.visitTime,saved_at:new Date().toISOString()}).catch(()=>{});},2000);};
   function renderMats(){
     matWrap.replaceChildren(...st.materials.map((m,i)=>{
-      const sel=h('select',{className:'ws-input status-select',onChange:e=>{m.name=e.target.value;scheduleSave();}},h('option',{value:''},'Select item…'),...DEMO_STOCK.map(name=>h('option',{value:name},name)));
+      const sel=h('select',{className:'ws-input status-select mat-select',onChange:e=>{m.name=e.target.value;scheduleSave();}},h('option',{value:''},'Select item…'),...DEMO_STOCK.map(name=>h('option',{value:name},name)));
       sel.value=m.name||'';
       return h('div',{className:'mat-row'},sel,
         h('input',{className:'ws-input',type:'number',placeholder:'Qty',min:'0',step:'any',value:m.qty||'',onInput:e=>{m.qty=e.target.value;scheduleSave();}}),
@@ -752,7 +757,7 @@ function renderSVR(container,jobId,st){
     if(st.submitting)return; st.submitting=true; submitBtn.disabled=true; submitBtn.textContent='Submitting…'; setStep(0);
     try{
       const stock=st.materials.filter(m=>m.name&&m.qty).map(m=>({stock_item_id:m.sid||0,quantity_used:parseFloat(m.qty)||0}));
-      const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:st.notes,stock_usage:stock});
+      const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:st.notes,stock_usage:stock,arrived_at:st.visitTime});
       if(!rpt)throw new Error('Failed to create report');
       st.reportId=rpt.id; setStep(1);
       if(st.signatureBlob){const fd=new FormData();fd.append('signature',st.signatureBlob,'signature.png');const r=await apiFetch('POST','/reports/'+st.reportId+'/signature',fd);if(!r||!r.ok)throw new Error('Signature upload failed');}
@@ -775,6 +780,7 @@ function renderSVR(container,jobId,st){
   const photoSection=STATE.offline?h('div',{className:'offline-inline'},'Photo upload unavailable offline'):photoArea;
   renderMats(); renderPhotos();
   container.replaceChildren(
+    h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Time'),clockPicker(st.visitTime,v=>{st.visitTime=v;scheduleSave();})),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Notes'),h('textarea',{className:'ws-input',rows:'4',placeholder:'Describe the work done…',style:{textAlign:'center'},onInput:e=>{st.notes=e.target.value;scheduleSave();}},st.notes||'')),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Materials Used'),matWrap),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Customer Signature'),sigSection),
@@ -830,6 +836,72 @@ function initSigPad(canvas){
   canvas.addEventListener('touchend',()=>drawing=false);
 }
 function canvasBlob(c){return new Promise(r=>{try{c.toBlob(b=>r(b),'image/png');}catch(_){r(null);}});}
+function clockPicker(initial,onChange){
+  const CX=100,CY=100,RO=74,RI=50;
+  const outerH=[12,1,2,3,4,5,6,7,8,9,10,11];
+  const innerH=[0,13,14,15,16,17,18,19,20,21,22,23];
+  const minMarks=[0,5,10,15,20,25,30,35,40,45,50,55];
+  let phase='hour';
+  const pp=(initial||'09:00').split(':');
+  let hh=Math.min(23,Math.max(0,parseInt(pp[0],10)||0));
+  let mm=Math.min(59,Math.max(0,parseInt(pp[1],10)||0));
+  let dragging=false,svgEl=null;
+  const wrap=h('div',{});
+  const f2=n=>String(n).padStart(2,'0');
+  const fmt=()=>f2(hh)+':'+f2(mm);
+  const pos=(i,r)=>[+(CX+r*Math.sin(i/12*2*Math.PI)).toFixed(1),+(CY-r*Math.cos(i/12*2*Math.PI)).toFixed(1)];
+  function ticks(){let s='';for(let i=0;i<60;i++){const a=i/60*2*Math.PI,maj=i%5===0,r1=maj?88:92;s+='<line x1="'+(CX+r1*Math.sin(a)).toFixed(2)+'" y1="'+(CY-r1*Math.cos(a)).toFixed(2)+'" x2="'+(CX+97*Math.sin(a)).toFixed(2)+'" y2="'+(CY-97*Math.cos(a)).toFixed(2)+'" stroke="var(--text-dim)" stroke-width="'+(maj?1.5:0.7)+'" opacity="0.35"/>';}return s;}
+  function nums(){let s='';
+    if(phase==='hour'){
+      outerH.forEach(function(n,i){var p=pos(i,RO),sel=hh===n;s+='<g class="ck-num"><circle cx="'+p[0]+'" cy="'+p[1]+'" r="14" fill="'+(sel?'var(--sumi)':'transparent')+'"/><text x="'+p[0]+'" y="'+(p[1]+4.5)+'" text-anchor="middle" font-size="12" font-family="\'Noto Sans JP\',sans-serif" fill="'+(sel?'var(--washi)':'var(--text-pri)')+'" font-weight="'+(sel?'500':'300')+'">'+n+'</text></g>';});
+      innerH.forEach(function(n,i){var p=pos(i,RI),sel=hh===n;s+='<g class="ck-num"><circle cx="'+p[0]+'" cy="'+p[1]+'" r="11" fill="'+(sel?'var(--sumi)':'transparent')+'"/><text x="'+p[0]+'" y="'+(p[1]+3.5)+'" text-anchor="middle" font-size="9" font-family="\'Noto Sans JP\',sans-serif" fill="'+(sel?'var(--washi)':'var(--text-sec)')+'" font-weight="'+(sel?'500':'300')+'">'+f2(n)+'</text></g>';});
+    } else {
+      minMarks.forEach(function(n,i){var p=pos(i,RO),sel=mm===n;s+='<g class="ck-num"><circle cx="'+p[0]+'" cy="'+p[1]+'" r="14" fill="'+(sel?'var(--sumi)':'transparent')+'"/><text x="'+p[0]+'" y="'+(p[1]+4.5)+'" text-anchor="middle" font-size="11" font-family="\'Noto Sans JP\',sans-serif" fill="'+(sel?'var(--washi)':'var(--text-pri)')+'" font-weight="'+(sel?'500':'300')+'">'+f2(n)+'</text></g>';});
+    }
+    return s;}
+  function hand(){var ang=phase==='hour'?((hh%12)/12*2*Math.PI):(mm/60*2*Math.PI);var r=phase==='hour'?((hh>=1&&hh<=12)?RO:RI):RO;var hx=(CX+r*Math.sin(ang)).toFixed(1),hy=(CY-r*Math.cos(ang)).toFixed(1);return '<line x1="'+CX+'" y1="'+CY+'" x2="'+hx+'" y2="'+hy+'" stroke="var(--nori)" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/><circle cx="'+hx+'" cy="'+hy+'" r="5" fill="var(--nori)" opacity="0.55"/><circle cx="'+CX+'" cy="'+CY+'" r="3" fill="var(--sumi)"/>';}
+  function render(){
+    wrap.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:10px">'
+      +'<div style="display:flex;align-items:center;gap:2px">'
+      +'<button type="button" class="ck-hh-btn ck-hh" style="border-bottom:2px solid '+(phase==='hour'?'var(--sumi)':'transparent')+'">'+f2(hh)+'</button>'
+      +'<span style="color:var(--text-dim);font-size:28px;font-family:\'Noto Serif JP\',serif;font-weight:300;line-height:1;margin-bottom:2px">:</span>'
+      +'<button type="button" class="ck-hh-btn ck-mm" style="border-bottom:2px solid '+(phase==='minute'?'var(--sumi)':'transparent')+'">'+f2(mm)+'</button>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:200px">'
+      +'<span style="font-family:\'Noto Sans JP\',sans-serif;font-size:8px;letter-spacing:0.18em;color:var(--text-dim);text-transform:uppercase">'+(phase==='hour'?'drag or tap hour':'drag or tap minute')+'</span>'
+      +(phase==='minute'?'<button type="button" class="ck-back" style="background:none;border:none;cursor:pointer;color:var(--text-sec);font-family:\'Noto Sans JP\',sans-serif;font-size:9px;letter-spacing:0.08em;padding:0">← hours</button>':'')
+      +'</div>'
+      +'<svg class="ck-svg" viewBox="0 0 200 200" style="width:200px;height:200px;max-width:100%;touch-action:none;cursor:grab;user-select:none">'
+      +'<circle cx="100" cy="100" r="97" fill="var(--input-bg)" stroke="var(--card-border)" stroke-width="1.5"/>'
+      +ticks()+nums()+hand()
+      +'</svg></div>';
+    svgEl=wrap.querySelector('.ck-svg');
+    var bh=wrap.querySelector('.ck-hh');if(bh)bh.addEventListener('click',function(){phase='hour';render();});
+    var bm=wrap.querySelector('.ck-mm');if(bm)bm.addEventListener('click',function(){phase='minute';render();});
+    var bb=wrap.querySelector('.ck-back');if(bb)bb.addEventListener('click',function(){phase='hour';render();});
+    svgEl.addEventListener('mousedown',onDown);
+    svgEl.addEventListener('touchstart',onDown,{passive:false});
+  }
+  function pt(e){var t=(e.touches&&e.touches[0])?e.touches[0]:e;return{x:t.clientX,y:t.clientY};}
+  function calc(cx2,cy2){
+    if(!svgEl)return;var r=svgEl.getBoundingClientRect();if(!r.width)return;
+    var sx=(cx2-r.left)*(200/r.width),sy=(cy2-r.top)*(200/r.height);
+    var dx=sx-CX,dy=sy-CY;var ang=(Math.atan2(dx,-dy)+2*Math.PI)%(2*Math.PI);
+    if(phase==='hour'){var dist=Math.sqrt(dx*dx+dy*dy);var hi=Math.round(ang/(2*Math.PI)*12)%12;hh=dist>(RO+RI)/2?(hi===0?12:hi):(hi===0?0:hi+12);}
+    else{mm=Math.round(ang/(2*Math.PI)*60)%60;}
+    if(onChange)onChange(fmt());
+    render();
+  }
+  function onDown(e){e.preventDefault();dragging=true;var p=pt(e);calc(p.x,p.y);}
+  function onMove(e){if(!dragging)return;if(svgEl&&!document.body.contains(svgEl)){dragging=false;return;}e.preventDefault();var p=pt(e);calc(p.x,p.y);}
+  function onUp(){if(!dragging)return;dragging=false;if(svgEl&&!document.body.contains(svgEl))return;if(phase==='hour'){phase='minute';render();}}
+  window.addEventListener('mousemove',onMove);
+  window.addEventListener('touchmove',onMove,{passive:false});
+  window.addEventListener('mouseup',onUp);
+  window.addEventListener('touchend',onUp);
+  render();
+  return wrap;
+}
 function openSignatureCapture(onSave){
   const overlay=h('div',{className:'sig-modal'});
   const stage=h('div',{className:'sig-modal-stage'});
