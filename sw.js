@@ -1,4 +1,4 @@
-const CACHE = 'dokit-v17';
+const CACHE = 'dokit-v18';
 const SHELL = ['./', './index.html',
   './icons/icon-192-light.png', './icons/icon-512-light.png', './icons/icon-512-maskable-light.png',
   './icons/icon-192-dark.png',  './icons/icon-512-dark.png',  './icons/icon-512-maskable-dark.png'];
