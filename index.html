@@ -293,6 +293,30 @@ select.status-select option{text-align:center}
 .mat-select{padding:22px 58px}
 .ck-hh-btn{background:none;border:none;cursor:pointer;font-family:'Noto Serif JP',serif;font-size:32px;font-weight:300;letter-spacing:0.04em;color:var(--text-pri);padding:0 6px 4px;line-height:1.1;transition:color 0.2s}
 .ck-num{cursor:pointer}
+.rep-modal{position:fixed;inset:0;z-index:1100;background:rgba(28,26,24,0.55);overflow:auto;display:flex;flex-direction:column;align-items:center;padding-bottom:40px}
+.rep-bar{position:sticky;top:0;width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card-bg);border-bottom:1px solid var(--card-border);z-index:2;box-sizing:border-box}
+.rep-bar-t{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-sec)}
+.rep-close{background:var(--sumi);color:var(--washi);border:none;padding:8px 16px;border-radius:1px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.rep-page{width:100%;max-width:640px;background:#fff;color:#1c1a18;margin:20px 12px;padding:32px 28px;box-shadow:0 10px 30px rgba(0,0,0,0.3);box-sizing:border-box}
+.rep-head{text-align:center}
+.rep-brand{font-family:'Playfair Display',Georgia,serif;font-size:30px;letter-spacing:0.04em;color:#1c1a18}
+.rep-doctitle{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:#8b7228;margin-top:4px}
+.rep-date{font-size:10px;color:#7a6e5e;margin-top:6px}
+.rep-rule{height:2px;background:#8b7228;opacity:0.7;margin:16px 0}
+.rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+.rep-lab{font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:#7a6e5e;margin-bottom:2px}
+.rep-val{font-size:12px;color:#1c1a18;font-weight:300}
+.rep-sec{margin-top:18px}
+.rep-sec-t{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#7a6e5e;border-bottom:1px solid #d8cdb6;padding-bottom:5px;margin-bottom:8px}
+.rep-text{font-size:12px;line-height:1.6;color:#1c1a18;font-weight:300;white-space:pre-wrap}
+.rep-tbl{font-size:12px}
+.rep-tr{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #eee3cf}
+.rep-th{font-size:8px;letter-spacing:0.12em;text-transform:uppercase;color:#7a6e5e;border-bottom:1px solid #d8cdb6}
+.rep-muted{color:#9a8e78}
+.rep-sig{max-width:260px;max-height:100px;object-fit:contain;border:1px solid #e3dccb;background:#fff}
+.rep-photos{display:flex;flex-wrap:wrap;gap:8px}
+.rep-photo{width:84px;height:84px;object-fit:cover;border:1px solid #e3dccb}
+.rep-foot{font-size:9px;color:#7a6e5e;text-align:center;letter-spacing:0.06em}
 .ws-btn-install{background:var(--sumi);color:var(--washi);border:none;padding:12px 14px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:1px;font-family:'Noto Sans JP',sans-serif}
 .ws-btn-install:disabled{opacity:.55;cursor:default}
 .biz6{position:relative;background:var(--card-bg);padding:22px;border:1px solid var(--card-border);box-shadow:0 6px 18px var(--card-shadow);margin-top:12px}
@@ -745,7 +769,7 @@ function renderSVR(container,jobId,st){
         h('button',{className:'mat-del',onClick:()=>{if(st.materials.length>1){st.materials.splice(i,1);renderMats();}}}, '×'),
         sel,
         h('input',{className:'ws-input mat-qty',type:'number',placeholder:'Qty',min:'0',step:'any',value:m.qty||'',onInput:e=>{m.qty=e.target.value;scheduleSave();}}));
-    }),h('button',{className:'ws-btn-ghost',style:{marginTop:'6px'},onClick:()=>{st.materials.push({name:'',qty:'',unit:'',sid:null});renderMats();}},'+  Add material'));
+    }),h('button',{className:'ws-btn-ghost',style:{marginTop:'6px',display:'block',marginLeft:'auto',marginRight:'auto'},onClick:()=>{st.materials.push({name:'',qty:'',unit:'',sid:null});renderMats();}},'+  Add material'));
   }
   const photoArea=h('div',{});
   function renderPhotos(){
@@ -758,18 +782,20 @@ function renderSVR(container,jobId,st){
   const submitBtn=h('button',{className:'ws-btn-primary ws-btn-full',style:{marginTop:'8px'},onClick:async()=>{
     if(st.submitting)return; st.submitting=true; submitBtn.disabled=true; submitBtn.textContent='Submitting…'; setStep(0);
     try{
-      const stock=st.materials.filter(m=>m.name&&m.qty).map(m=>({stock_item_id:m.sid||0,quantity_used:parseFloat(m.qty)||0}));
-      const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:st.notes,stock_usage:stock,arrived_at:st.visitTime});
-      if(!rpt)throw new Error('Failed to create report');
-      st.reportId=rpt.id; setStep(1);
-      if(st.signatureBlob){const fd=new FormData();fd.append('signature',st.signatureBlob,'signature.png');const r=await apiFetch('POST','/reports/'+st.reportId+'/signature',fd);if(!r||!r.ok)throw new Error('Signature upload failed');}
-      setStep(2);
-      for(const photo of st.photos){const fd=new FormData();fd.append('photo',photo,photo.name);const r=await apiFetch('POST','/reports/'+st.reportId+'/attachments',fd);if(!r||!r.ok)throw new Error('Photo upload failed');}
-      setStep(3);
-      await apiJSON('POST','/reports/'+st.reportId+'/finalize',{});
-      await idbDel('svr_drafts',Number(jobId));
-      toast('Report submitted — PDF sent to client','success','Done');
-      location.hash='#job/'+jobId;
+      if(STATE.token!=='demo'){
+        const stock=st.materials.filter(m=>m.name&&m.qty).map(m=>({stock_item_id:m.sid||0,quantity_used:parseFloat(m.qty)||0}));
+        const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:st.notes,stock_usage:stock,arrived_at:st.visitTime});
+        if(!rpt)throw new Error('Failed to create report');
+        st.reportId=rpt.id; setStep(1);
+        if(st.signatureBlob){const fd=new FormData();fd.append('signature',st.signatureBlob,'signature.png');const r=await apiFetch('POST','/reports/'+st.reportId+'/signature',fd);if(!r||!r.ok)throw new Error('Signature upload failed');}
+        setStep(2);
+        for(const photo of st.photos){const fd=new FormData();fd.append('photo',photo,photo.name);const r=await apiFetch('POST','/reports/'+st.reportId+'/attachments',fd);if(!r||!r.ok)throw new Error('Photo upload failed');}
+        setStep(3);
+        await apiJSON('POST','/reports/'+st.reportId+'/finalize',{});
+      }
+      await idbDel('svr_drafts',Number(jobId)).catch(()=>{});
+      toast('Report completed','success','Done');
+      document.body.append(reportPreview(_job,jobId,st));
     }catch(err){toast(err.message||'Submission failed','error','Error');st.submitting=false;submitBtn.disabled=false;submitBtn.textContent='Submit Report';}
   }},'Submit Report');
   const sigPreview=h('div',{className:'sig-preview'});
@@ -869,10 +895,7 @@ function clockPicker(initial,onChange){
       +'<span style="color:var(--text-dim);font-size:28px;font-family:\'Noto Serif JP\',serif;font-weight:300;line-height:1;margin-bottom:2px">:</span>'
       +'<button type="button" class="ck-hh-btn ck-mm" style="border-bottom:2px solid '+(phase==='minute'?'var(--sumi)':'transparent')+'">'+f2(mm)+'</button>'
       +'</div>'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:200px">'
-      +'<span style="font-family:\'Noto Sans JP\',sans-serif;font-size:8px;letter-spacing:0.18em;color:var(--text-dim);text-transform:uppercase">'+(phase==='hour'?'drag or tap hour':'drag or tap minute')+'</span>'
-      +(phase==='minute'?'<button type="button" class="ck-back" style="background:none;border:none;cursor:pointer;color:var(--text-sec);font-family:\'Noto Sans JP\',sans-serif;font-size:9px;letter-spacing:0.08em;padding:0">← hours</button>':'')
-      +'</div>'
+      +(phase==='minute'?'<div style="display:flex;align-items:center;justify-content:center;width:100%;max-width:200px"><button type="button" class="ck-back" style="background:none;border:none;cursor:pointer;color:var(--text-sec);font-family:\'Noto Sans JP\',sans-serif;font-size:9px;letter-spacing:0.08em;padding:0">← hours</button></div>':'')
       +'<svg class="ck-svg" viewBox="0 0 200 200" style="width:200px;height:200px;max-width:100%;touch-action:none;cursor:grab;user-select:none">'
       +'<circle cx="100" cy="100" r="97" fill="var(--input-bg)" stroke="var(--card-border)" stroke-width="1.5"/>'
       +ticks()+nums()+hand()
@@ -903,6 +926,44 @@ function clockPicker(initial,onChange){
   window.addEventListener('touchend',onUp);
   render();
   return wrap;
+}
+function reportPreview(job,jobId,st){
+  job=job||{};
+  const overlay=h('div',{className:'rep-modal'});
+  const closeBtn=h('button',{className:'rep-close',onClick:()=>{overlay.remove();location.hash='#job/'+jobId;}},'Close');
+  const page=h('div',{className:'rep-page'});
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});
+  page.append(
+    h('div',{className:'rep-head'},
+      h('div',{className:'rep-brand'},'Dokit'),
+      h('div',{className:'rep-doctitle'},'Site Visit Report'),
+      h('div',{className:'rep-date'},dateStr)),
+    h('div',{className:'rep-rule'}));
+  function fld(lab,val){return h('div',{},h('div',{className:'rep-lab'},lab),h('div',{className:'rep-val'},val||'—'));}
+  page.append(h('div',{className:'rep-grid'},
+    fld('Client',job.client_name),
+    fld('Job Title',job.title||job.job_type),
+    fld('Location',job.location),
+    fld('Contact',job.contact_name),
+    fld('Contact No.',job.contact_phone),
+    fld('Visit Time',st.visitTime)));
+  const desc=st.notes||job.description||'';
+  page.append(h('div',{className:'rep-sec'},h('div',{className:'rep-sec-t'},'Work Description'),h('div',{className:'rep-text'},desc||'—')));
+  const mats=(st.materials||[]).filter(function(m){return m.name;});
+  const tbl=h('div',{className:'rep-tbl'},h('div',{className:'rep-tr rep-th'},h('span',{},'Item'),h('span',{},'Qty')));
+  if(mats.length)mats.forEach(function(m){tbl.append(h('div',{className:'rep-tr'},h('span',{},m.name),h('span',{},String(m.qty||''))));});
+  else tbl.append(h('div',{className:'rep-tr'},h('span',{className:'rep-muted'},'No materials recorded'),h('span',{},'')));
+  page.append(h('div',{className:'rep-sec'},h('div',{className:'rep-sec-t'},'Materials Used'),tbl));
+  if(st.signatureURL)page.append(h('div',{className:'rep-sec'},h('div',{className:'rep-sec-t'},'Customer Signature'),h('img',{className:'rep-sig',src:st.signatureURL,alt:'Signature'})));
+  if(st.photos&&st.photos.length){
+    const strip=h('div',{className:'rep-photos'});
+    st.photos.forEach(function(f){try{strip.append(h('img',{className:'rep-photo',src:URL.createObjectURL(f)}));}catch(_){}});
+    page.append(h('div',{className:'rep-sec'},h('div',{className:'rep-sec-t'},'Site Photos'),strip));
+  }
+  page.append(h('div',{className:'rep-rule'}),h('div',{className:'rep-foot'},'Technician: '+((STATE.user&&STATE.user.name)||'—')+'   ·   Completed '+now.toLocaleString('en-ZA')));
+  overlay.append(h('div',{className:'rep-bar'},h('span',{className:'rep-bar-t'},'Report Preview'),closeBtn),page);
+  return overlay;
 }
 function openSignatureCapture(onSave){
   const overlay=h('div',{className:'sig-modal'});
