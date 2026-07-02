@@ -408,6 +408,17 @@ const DEMO_JOBS = [
   {id:3, client_name:'Pinnacle Holdings',  title:'Site survey', location:'Town Square, Constantia, Albert St, Weltevredenpark, Roodepoort, 1732',    status:'completed',   priority:'low',    scheduled_date:new Date(Date.now()-86400000).toISOString().slice(0,10), scheduled_time:'10:00', due_date:new Date(Date.now()-86400000).toISOString().slice(0,10), notes:'Completed site survey.', description:'Survey the premises for a new access-control installation. Record mounting points, cable routes and door hardware, and note the emergency break-glass position for the quotation.', contact_name:'Priya Naidoo', contact_phone:'+27 84 345 6789', required_stock:[{name:'Mounting Bracket',qty:2},{name:'Emergency Call Point/Break Glass (Resettable)',qty:1}], assigned_to:1},
 ];
 const DEMO_STOCK = ['Maglock','Z-Bracket','Timer Board','Mounting Bracket','No-Touch Exit Button','Emergency Call Point/Break Glass (Resettable)','3 Amp Power Supply','12 Volt Battery (Lithium-Ion)','12 Volt Battery (Lead-Acid)'];
+const NOTE_TEMPLATES={
+  onsite:{label:'On Site Callout',timeLabel:'Arrived on site at',contactLabel:'Met with'},
+  remote:{label:'Remote Work',timeLabel:'Logged in Remotely at',contactLabel:'Spoke with'}
+};
+function composeNotes(st){
+  const t=NOTE_TEMPLATES[st.template];
+  if(!t)return st.notes;
+  return t.timeLabel+': '+(st.visitTime||'')+'\n'+t.contactLabel+': '+((st.tmpl&&st.tmpl.metWith)||'')
+    +'\n\nWork Completed:\n'+((st.tmpl&&st.tmpl.workCompleted)||'')
+    +'\n\nWork Remaining:\n'+((st.tmpl&&st.tmpl.workRemaining)||'');
+}
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function statusInfo(st) {
@@ -765,8 +776,8 @@ function SVRScreen(jobId){
   const wrap=h('div',{style:{display:'flex',flexDirection:'column',minHeight:'100%'}});
   wrap.append(h('div',{className:'app-bar'},h('button',{className:'back',onClick:()=>location.hash='#job/'+jobId},'← Job'),h('div',{className:'title',style:{fontSize:'15px'}},'Site Visit Report')));
   const body=h('div',{className:'svr-body anim-fade'}); wrap.append(body);
-  const st={notes:'',materials:[{name:'',qty:'',unit:'',sid:null}],photos:[],reportId:null,submitting:false};
-  idbGet('svr_drafts',Number(jobId)).then(d=>{if(d){st.notes=d.notes||'';st.materials=d.materials||st.materials;if(d.visitTime)st.visitTime=d.visitTime;renderSVR(body,jobId,st);}}).catch(()=>{});
+  const st={notes:'',template:'',tmpl:{metWith:'',workCompleted:'',workRemaining:''},materials:[{name:'',qty:'',unit:'',sid:null}],photos:[],reportId:null,submitting:false};
+  idbGet('svr_drafts',Number(jobId)).then(d=>{if(d){st.notes=d.notes||'';st.materials=d.materials||st.materials;if(d.visitTime)st.visitTime=d.visitTime;if(d.template)st.template=d.template;if(d.tmpl)st.tmpl=d.tmpl;renderSVR(body,jobId,st);}}).catch(()=>{});
   renderSVR(body,jobId,st);
   return wrap;
 }
@@ -775,7 +786,7 @@ function renderSVR(container,jobId,st){
   const _job=STATE.jobs.find(j=>String(j.id)===String(jobId));
   if(st.visitTime==null)st.visitTime=(_job&&_job.scheduled_time)||'09:00';
   const matWrap=h('div',{}); let saveTimer=null;
-  const scheduleSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{idbPut('svr_drafts',{job_id:Number(jobId),notes:st.notes,materials:st.materials,visitTime:st.visitTime,saved_at:new Date().toISOString()}).catch(()=>{});},2000);};
+  const scheduleSave=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{idbPut('svr_drafts',{job_id:Number(jobId),notes:st.notes,template:st.template,tmpl:st.tmpl,materials:st.materials,visitTime:st.visitTime,saved_at:new Date().toISOString()}).catch(()=>{});},2000);};
   function renderMats(){
     matWrap.replaceChildren(...st.materials.map((m,i)=>{
       const sel=styledSelect([['','Select item…']].concat(DEMO_STOCK.map(function(n){return [n,n];})),m.name||'',function(v){m.name=v;scheduleSave();},{wide:true});
@@ -798,7 +809,7 @@ function renderSVR(container,jobId,st){
     try{
       if(STATE.token!=='demo'){
         const stock=st.materials.filter(m=>m.name&&m.qty).map(m=>({stock_item_id:m.sid||0,quantity_used:parseFloat(m.qty)||0}));
-        const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:st.notes,stock_usage:stock,arrived_at:st.visitTime});
+        const rpt=await apiJSON('POST','/reports',{job_id:Number(jobId),notes:composeNotes(st),stock_usage:stock,arrived_at:st.visitTime});
         if(!rpt)throw new Error('Failed to create report');
         st.reportId=rpt.id; setStep(1);
         if(st.signatureBlob){const fd=new FormData();fd.append('signature',st.signatureBlob,'signature.png');const r=await apiFetch('POST','/reports/'+st.reportId+'/signature',fd);if(!r||!r.ok)throw new Error('Signature upload failed');}
@@ -809,6 +820,7 @@ function renderSVR(container,jobId,st){
       }
       await idbDel('svr_drafts',Number(jobId)).catch(()=>{});
       toast('Report completed','success','Done');
+      st.notes=composeNotes(st);
       document.body.append(reportPreview(_job,jobId,st));
     }catch(err){toast(err.message||'Submission failed','error','Error');st.submitting=false;submitBtn.disabled=false;submitBtn.textContent='Submit Report';}
   }},'Submit Report');
@@ -821,9 +833,27 @@ function renderSVR(container,jobId,st){
     :(renderSig(),h('div',{className:'sig-actions'},sigPreview,sigBtn));
   const photoSection=STATE.offline?h('div',{className:'offline-inline'},'Photo upload unavailable offline'):photoArea;
   renderMats(); renderPhotos();
+  const timeLbl=h('span',{className:'sl'},'Visit Time');
+  const notesArea=h('div',{});
+  function renderNotesArea(){
+    const t=NOTE_TEMPLATES[st.template];
+    timeLbl.textContent=t?t.timeLabel:'Visit Time';
+    if(!t){
+      notesArea.replaceChildren(
+        h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Notes'),h('textarea',{className:'ws-input',rows:'4',placeholder:'Describe the work done…',style:{textAlign:'center'},onInput:e=>{st.notes=e.target.value;scheduleSave();}},st.notes||'')));
+      return;
+    }
+    if(!st.tmpl.metWith&&_job&&_job.contact_name)st.tmpl.metWith=_job.contact_name;
+    notesArea.replaceChildren(
+      h('div',{className:'svr-section'},h('span',{className:'sl'},t.contactLabel),h('input',{className:'ws-input',style:{textAlign:'center'},placeholder:'Contact name…',value:st.tmpl.metWith||'',onInput:e=>{st.tmpl.metWith=e.target.value;scheduleSave();}})),
+      h('div',{className:'svr-section'},h('span',{className:'sl'},'Work Completed'),h('textarea',{className:'ws-input',rows:'3',placeholder:'Describe the work completed…',style:{textAlign:'center'},onInput:e=>{st.tmpl.workCompleted=e.target.value;scheduleSave();}},st.tmpl.workCompleted||'')),
+      h('div',{className:'svr-section'},h('span',{className:'sl'},'Work Remaining'),h('textarea',{className:'ws-input',rows:'3',placeholder:'Describe the work remaining…',style:{textAlign:'center'},onInput:e=>{st.tmpl.workRemaining=e.target.value;scheduleSave();}},st.tmpl.workRemaining||'')));
+  }
+  renderNotesArea();
   container.replaceChildren(
-    h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Time'),clockPicker(st.visitTime,v=>{st.visitTime=v;scheduleSave();})),
-    h('div',{className:'svr-section'},h('span',{className:'sl'},'Visit Notes'),h('textarea',{className:'ws-input',rows:'4',placeholder:'Describe the work done…',style:{textAlign:'center'},onInput:e=>{st.notes=e.target.value;scheduleSave();}},st.notes||'')),
+    h('div',{className:'svr-section'},h('span',{className:'sl'},'Note Template'),styledSelect([['','Free text…'],['onsite','On Site Callout'],['remote','Remote Work']],st.template||'',v=>{st.template=v;scheduleSave();renderNotesArea();})),
+    h('div',{className:'svr-section'},timeLbl,clockPicker(st.visitTime,v=>{st.visitTime=v;scheduleSave();})),
+    notesArea,
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Materials Used'),matWrap),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Customer Signature'),sigSection),
     h('div',{className:'svr-section'},h('span',{className:'sl'},'Photos (max 5)'),photoSection),
